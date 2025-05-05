@@ -9,6 +9,8 @@ from haystack.nodes import PreProcessor
 from haystack.document_stores import InMemoryDocumentStore
 from qdrant_haystack import QdrantDocumentStore
 
+from type_2_helpers import function_map
+
 
 def initialize_db(args):
     print("[+] Initialize database...")
@@ -44,6 +46,10 @@ def initialize_db(args):
             faq_df = pd.read_csv(FAQ_FILE)
         elif FAQ_FILE.endswith(".json"):
             faq_df = pd.read_json(FAQ_FILE)
+        if FAQ_TYPE_2_FILE.endswith(".csv"):
+            faq2_df = pd.read_csv(FAQ_TYPE_2_FILE)
+        elif FAQ_TYPE_2_FILE.endswith(".json"):
+            faq2_df = pd.read_json(FAQ_TYPE_2_FILE)
 
         if not ("query" in faq_df.columns and "answer" in faq_df.columns):
             raise KeyError("FAQ file must have two keys 'query' and 'answer'")
@@ -58,6 +64,7 @@ def initialize_db(args):
 
         if args.dev:
             faq_df = faq_df.head(10)
+            faq2_df = faq2_df.head(10)
             web_df = web_df.head(20)
 
         faq_documents = []
@@ -66,6 +73,21 @@ def initialize_db(args):
             content = d["query"] 
             faq_documents.append(
                 Document(content=content, id=idx, meta={"answer": d["answer"]})
+            )
+            idx += 1
+        # Loading FAQ type 2
+        for _, d in tqdm(faq2_df.iterrows(), desc="Loading FAQ Type 2..."):
+
+            function = d["function"]
+
+            # Check functions before adding
+            if function not in function_map.keys():
+                raise KeyError(f"Function {function} not found in list of supported functions: {','.join(list(function_map.keys()))}")
+
+
+            content = d["query"]
+            faq_documents.append(
+                Document(content=content, id=idx, meta={"answer": d["answer"], "type": d["type"], "function": d["function"], "params": d["params"]})
             )
             idx += 1
 
